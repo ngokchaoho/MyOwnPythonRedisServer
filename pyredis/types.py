@@ -6,17 +6,37 @@ from dataclasses import dataclass
 class SimpleString:
     data: str
 
+    def resp_encode(self):
+        return f"+{self.data}\r\n".encode()
+
+
 @dataclass
 class Error:
-    data:str
+    data: str
+
+    def resp_encode(self):
+        return f"-{self.data}\r\n".encode()
+
 
 @dataclass
 class Integer:
-    data:int
+    data: int
+
+    def resp_encode(self):
+        return f":{self.data}\r\n".encode()
+
 
 @dataclass
 class BulkString:
-    data:bytes
+    data: bytes
+
+    def resp_encode(self):
+        # NULL bulk String
+        if self.data is None:
+            return "$-1\r\n".encode()
+        else:
+            return f"${len(self.data)}\r\n{self.data}\r\n".encode()
+
 
 @dataclass
 class Array(Sequence):
@@ -28,3 +48,14 @@ class Array(Sequence):
     def __len__(self):
         return len(self.data)
 
+    def resp_encode(self):
+        # NULL array
+        if self.data is None:
+            return b"*-1\r\n"
+        str_representation = [
+            f"*{len(self.data)}\r\n".encode(),
+        ]
+        for frame in self.data:
+            str_representation.append(frame.resp_encode())
+
+        return b"".join(str_representation)
