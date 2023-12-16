@@ -3,36 +3,17 @@ import logging
 
 from pyredis.protocol import extract_frame_from_buffer, encode_message
 from pyredis.commands import handle_command
+from pyredis.datastore import DataStore
 
 RECV_SIZE = 2048
 log = logging.getLogger("pyredis")
-
-
-def handle_client_connection(client_socket):
-    buffer = bytearray()
-    try:
-        while True:
-            data = client_socket.recv(RECV_SIZE)
-            log.info("Received data from client")
-            if not data:
-                break
-            buffer.extend(data)
-            frame, frame_size = extract_frame_from_buffer(buffer)
-            log.info("Extracted one frame from received data")
-            if frame:
-                buffer = buffer[frame_size:]
-                log.info("Processing one frame")
-                result = handle_command(frame)
-                client_socket.send(encode_message(result))
-
-    finally:
-        client_socket.close()
 
 
 class Server:
     def __init__(self, port) -> None:
         self.port = port
         self._running = False
+        self._datastore = DataStore()
 
     def run(self):
         self._running = True
@@ -47,7 +28,27 @@ class Server:
             while self._running:
                 client_socket, _ = server_socket.accept()
                 log.info("Accepted one client")
-                handle_client_connection(client_socket)
+                self.handle_client_connection(client_socket, self._datastore)
+
+    def handle_client_connection(self, client_socket, datastore):
+        buffer = bytearray()
+        try:
+            while True:
+                data = client_socket.recv(RECV_SIZE)
+                log.info("Received data from client")
+                if not data:
+                    break
+                buffer.extend(data)
+                frame, frame_size = extract_frame_from_buffer(buffer)
+                log.info("Extracted one frame from received data")
+                if frame:
+                    buffer = buffer[frame_size:]
+                    log.info("Processing one frame")
+                    result = handle_command(frame, datastore)
+                    client_socket.send(encode_message(result))
+
+        finally:
+            client_socket.close()
 
     def stop(self):
         self._running = False
