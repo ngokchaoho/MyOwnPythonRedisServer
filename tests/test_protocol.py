@@ -1,6 +1,7 @@
 import pytest
 
 from pyredis.protocol import extract_frame_from_buffer, encode_message
+from pyredis.datastore import DataStore
 from pyredis.types import (
     Array,
     BulkString,
