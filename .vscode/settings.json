@@ -3,7 +3,7 @@
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true,
       },
-      "terminal.integrated.env.windows": {
-        "PYTHONPATH": "${workspaceFolder}/pyredis"
+      "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}"
       }
 }

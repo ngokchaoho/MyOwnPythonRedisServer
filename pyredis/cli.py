@@ -1,9 +1,10 @@
 #!/root/anaconda3/envs/redis/bin/python
+import socket
+import argparse
+
 from pyredis.protocol import encode_message, extract_frame_from_buffer
 from pyredis.types import Array, BulkString
 
-import socket
-import argparse
 
 DEFAULT_PORT = 6379
 DEFAULT_SERVER = "127.0.0.1"

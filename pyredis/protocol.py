@@ -71,3 +71,7 @@ def extract_frame_from_buffer(buffer):
 
                 return array_builder, total_frame_size
     return None, 0
+
+
+def encode_message(message):
+    return message.resp_encode()
