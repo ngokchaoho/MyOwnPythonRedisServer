@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import trio
 
 from pyredis.server import Server
 from pyredis.asyncserver import RedisServerProtocol
@@ -20,6 +21,11 @@ async def amain(args):
         await server.serve_forever()
 
 
+async def tmain(args):
+    server = Server(args.port)
+    await server.run()
+
+
 def main(args):
     print(f"Starting PyRedis on port: {args.port}")
 
@@ -38,6 +44,7 @@ if __name__ == "__main__":
         default=REDIS_DEFAULT_PORT,
     )
     parser.add_argument("--asyncio", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--trio", action=argparse.BooleanOptionalAction)
     parser.add_argument(
         "-v",
         "--verbose",
@@ -52,6 +59,9 @@ if __name__ == "__main__":
     if args.asyncio:
         logging.info("Using AsyncIO RedisServerProtocol")
         asyncio.run(amain(args))
+    elif args.trio:
+        logging.info("Using Trio Stream API")
+        trio.run(tmain, args)
     else:
         logging.info("Using threading module for multi-threading")
         main(args)
