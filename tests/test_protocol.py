@@ -1,4 +1,5 @@
 import pytest
+from time import sleep
 
 from pyredis.protocol import extract_frame_from_buffer, encode_message
 from pyredis.datastore import DataStore
@@ -84,9 +85,3 @@ def test_read_frame(buffer, expected):
 def test_encode_message(message, expected):
     encoded_message = encode_message(message)
     assert encoded_message == expected
-
-
-def test_set_and_get_item():
-    ds = DataStore()
-    ds["key"] = 1
-    assert ds["key"] == 1
