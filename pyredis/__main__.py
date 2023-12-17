@@ -1,10 +1,23 @@
 import argparse
+import asyncio
 
 from pyredis.server import Server
+from pyredis.asyncserver import RedisServerProtocol
 import logging
 
 
 REDIS_DEFAULT_PORT = 6379
+
+
+async def amain(args):
+    loop = asyncio.get_running_loop()
+
+    server = await loop.create_server(
+        lambda: RedisServerProtocol(), "127.0.0.1", args.port
+    )
+
+    async with server:
+        await server.serve_forever()
 
 
 def main(args):
@@ -24,6 +37,7 @@ if __name__ == "__main__":
         help="Redis server listening port",
         default=REDIS_DEFAULT_PORT,
     )
+    parser.add_argument("--asyncio", action=argparse.BooleanOptionalAction)
     parser.add_argument(
         "-v",
         "--verbose",
@@ -34,4 +48,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
-    main(args)
+
+    if args.asyncio:
+        logging.info("Using AsyncIO RedisServerProtocol")
+        asyncio.run(amain(args))
+    else:
+        logging.info("Using threading module for multi-threading")
+        main(args)

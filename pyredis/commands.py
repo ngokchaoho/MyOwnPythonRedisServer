@@ -1,4 +1,7 @@
 from pyredis.types import Array, BulkString, Error, Integer, SimpleString
+import logging
+
+log = logging.getLogger("pyredis")
 
 
 def _handle_echo(command):

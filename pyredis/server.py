@@ -1,5 +1,6 @@
 import socket
 import logging
+import threading
 
 from pyredis.protocol import extract_frame_from_buffer, encode_message
 from pyredis.commands import handle_command
@@ -28,7 +29,12 @@ class Server:
             while self._running:
                 client_socket, _ = server_socket.accept()
                 log.info("Accepted one client")
-                self.handle_client_connection(client_socket, self._datastore)
+                client_handler = threading.Thread(
+                    target=self.handle_client_connection,
+                    args=(client_socket, self._datastore),
+                )
+                # When the self.handle_client_connection returns, the thread running it would stop beling alive automatically
+                client_handler.start()
 
     def handle_client_connection(self, client_socket, datastore):
         buffer = bytearray()
