@@ -35,7 +35,6 @@ def main(args):
                 while True:
                     data = client_socket.recv(RECV_SIZE)
                     buffer.extend(data)
-
                     frame, frame_size = extract_frame_from_buffer(buffer)
 
                     if frame:

@@ -32,7 +32,7 @@ def extract_frame_from_buffer(buffer):
             data_size = int(paylood)
             # NULL bulk String
             if data_size == -1:
-                return None, 5
+                return BulkString(None), 5
             content_saparator = buffer.find(_MSG_SEPARATOR, separator + 1)
             if (
                 data_size >= 0

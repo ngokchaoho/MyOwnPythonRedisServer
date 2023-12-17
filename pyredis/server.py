@@ -11,10 +11,10 @@ log = logging.getLogger("pyredis")
 
 
 class Server:
-    def __init__(self, port) -> None:
+    def __init__(self, port, datastore) -> None:
         self.port = port
         self._running = False
-        self._datastore = DataStore()
+        self._datastore = datastore
 
     def run(self):
         self._running = True

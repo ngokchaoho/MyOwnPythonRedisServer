@@ -3,6 +3,13 @@ from dataclasses import dataclass
 from typing import Any
 from time import time
 
+import random
+import logging
+
+
+EXPIRY_TEST_SAMPLE_SIZE = 20
+log = logging.getLogger("pyredis")
+
 
 @dataclass
 class DataEntry:
@@ -30,12 +37,12 @@ class DataStore:
 
     def __getitem__(self, key):
         with self._lock:
+            log.info("Try to get key %s", key)
             item = self._data[key]
-
+            log.info("key exist %s, checking expiry", key)
             # if key expired
-            if item.expiry and item.expiry < int(time() * 1000):
-                del self._data[key]
-                raise KeyError
+            if self.check_expiry(key, item):
+                raise KeyError  # catched in _handle_get
 
             return item.value
 
@@ -48,5 +55,26 @@ class DataStore:
             calculated_expiry = int(time() * 1000) + expiry  # in miliseconds
             self._data[key] = DataEntry(value, calculated_expiry)
 
-    def check_expiry(datastore):
-        pass
+    def check_expiry(self, key: str, value: DataEntry) -> bool:
+        # if key expired then delete
+        if value.expiry and value.expiry < int(time() * 1000):
+            log.info("%s key expired", key)
+            del self._data[key]
+            return True
+        else:
+            return False
+
+    def remove_expired_keys(self):
+        expired_count = 0
+        with self._lock:
+            keys = random.sample(
+                sorted(self._data), min(EXPIRY_TEST_SAMPLE_SIZE, len(self._data))
+            )
+
+            for key in keys:
+                if self.check_expiry(key, self._data[key]):
+                    expired_count += 1
+        # after release lock
+        # if more than
+        if expired_count > EXPIRY_TEST_SAMPLE_SIZE * 0.25:
+            self.remove_expired_keys()

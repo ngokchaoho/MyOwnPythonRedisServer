@@ -6,9 +6,9 @@ from pyredis.protocol import encode_message, extract_frame_from_buffer
 
 
 class RedisServerProtocol(asyncio.Protocol):
-    def __init__(self):
+    def __init__(self, datastore):
         self.buffer = bytearray()
-        self._datastore = DataStore()
+        self._datastore = datastore
 
     def connection_made(self, transport):
         self.transport = transport

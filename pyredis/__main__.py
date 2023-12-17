@@ -1,20 +1,42 @@
 import argparse
 import asyncio
 import trio
+import logging
+import threading
+from time import sleep
 
 from pyredis.server import Server
 from pyredis.asyncserver import RedisServerProtocol
-import logging
+from pyredis.datastore import DataStore
 
 
 REDIS_DEFAULT_PORT = 6379
+log = logging.getLogger("pyredis")
+
+
+def check_expiry_task(datastore):
+    while True:
+        datastore.remove_expired_keys()
+        sleep(0.1)
+
+
+async def acheck_expiry_task(datastore):
+    while True:
+        datastore.remove_expired_keys()
+        await asyncio.sleep(0.1)
 
 
 async def amain(args):
+    log.info(f"Starting Pyredis on port: {args.port}")
+
+    datastore = DataStore()
+
     loop = asyncio.get_running_loop()
 
+    monitor_task = loop.create_task(acheck_expiry_task(datastore))
+
     server = await loop.create_server(
-        lambda: RedisServerProtocol(), "127.0.0.1", args.port
+        lambda: RedisServerProtocol(datastore), "127.0.0.1", args.port
     )
 
     async with server:
@@ -27,9 +49,13 @@ async def tmain(args):
 
 
 def main(args):
-    print(f"Starting PyRedis on port: {args.port}")
+    log.info(f"Starting PyRedis on port: {args.port}")
 
-    server = Server(args.port)
+    datastore = DataStore()
+    expiration_monitor = threading.Thread(target=check_expiry_task, args=(datastore,))
+    expiration_monitor.start()
+
+    server = Server(args.port, datastore)
     server.run()
 
 
@@ -57,11 +83,11 @@ if __name__ == "__main__":
     logging.basicConfig(level=args.loglevel)
 
     if args.asyncio:
-        logging.info("Using AsyncIO RedisServerProtocol")
+        log.info("Using AsyncIO RedisServerProtocol")
         asyncio.run(amain(args))
     elif args.trio:
-        logging.info("Using Trio Stream API")
+        log.info("Using Trio Stream API")
         trio.run(tmain, args)
     else:
-        logging.info("Using threading module for multi-threading")
+        log.info("Using threading module for multi-threading")
         main(args)
