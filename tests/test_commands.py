@@ -47,6 +47,6 @@ def datastore():
         ),
     ],
 )
-def test_handle_command(command, expected, sdatastore):
+def test_handle_command(command, expected, datastore):
     result = handle_command(command, datastore)
     assert result == expected
