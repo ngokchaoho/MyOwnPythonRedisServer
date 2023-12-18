@@ -97,6 +97,26 @@ def datastore():
             ),
             Integer(1),
         ),
+        # DEL tests
+        (
+            Array([BulkString(b"SET"), SimpleString(b"key1"), SimpleString(b"Hello")]),
+            SimpleString("OK"),
+        ),
+        (
+            Array([BulkString(b"SET"), SimpleString(b"key2"), SimpleString(b"World")]),
+            SimpleString("OK"),
+        ),
+        (
+            Array(
+                [
+                    BulkString(b"DEL"),
+                    SimpleString(b"key1"),
+                    SimpleString(b"key2"),
+                    SimpleString(b"key3"),
+                ]
+            ),
+            Integer(2),
+        ),
     ],
 )
 def test_handle_command(command, expected, datastore):
@@ -187,3 +207,37 @@ def test_expire_on_read(datastore):
     sleep(0.15)
     with pytest.raises(KeyError):
         datastore["key"]
+
+
+# Incr Tests
+def test_handle_incr_command_valid_key():
+    datastore = DataStore()
+    result = handle_command(
+        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore
+    )
+    assert result == Integer(1)
+    result = handle_command(
+        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore
+    )
+    assert result == Integer(2)
+
+
+# Decr Tests
+def test_handle_decr():
+    datastore = DataStore()
+    result = handle_command(
+        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore
+    )
+    assert result == Integer(1)
+    result = handle_command(
+        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore
+    )
+    assert result == Integer(2)
+    result = handle_command(
+        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore
+    )
+    assert result == Integer(1)
+    result = handle_command(
+        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore
+    )
+    assert result == Integer(0)

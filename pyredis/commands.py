@@ -70,6 +70,44 @@ def _handle_exists(command, datastore):
         return Error("ERR wrong number of arguments for 'exists' command")
 
 
+def _handle_del(command, datastore):
+    if len(command) >= 2:
+        found = 0
+        for key in command[1:]:
+            if key.data.decode() in datastore:
+                del datastore._data[key.data.decode()]
+                found += 1
+        return Integer(found)
+    else:
+        return Error("ERR wrong number of arguments for 'del' command")
+
+
+def _handle_incr(command, datastore):
+    if len(command) == 2:
+        key = command[1].data.decode()
+        try:
+            value = datastore[key] + 1
+        except KeyError:
+            value = 1  # first time increase
+        datastore[key] = value
+        return Integer(value)
+    return Error("ERR wrong number of arguments for 'incr' command")
+
+
+def _handle_decr(command, datastore):
+    if len(command) == 2:
+        key = command[1].data.decode()
+        try:
+            value = datastore[key] - 1
+        except KeyError:
+            value = -1
+        except TypeError:
+            return Error("value is not an integer or out of range")
+        datastore[key] = value
+        return Integer(value)
+    return Error("ERR wrong number of arguments for 'decr' command")
+
+
 def _handle_unrecognised_command(command, *args):
     args = " ".join((f"'{c.data.decode()}'" for c in command[1:]))
     return Error(
@@ -87,10 +125,14 @@ def handle_command(command, datastore):
 
         case "SET":
             return _handle_set(command, datastore)
-
         case "GET":
             return _handle_get(command, datastore)
         case "EXISTS":
             return _handle_exists(command, datastore)
-
+        case "DEL":
+            return _handle_del(command, datastore)
+        case "INCR":
+            return _handle_incr(command, datastore)
+        case "DECR":
+            return _handle_decr(command, datastore)
     return _handle_unrecognised_command(command)
