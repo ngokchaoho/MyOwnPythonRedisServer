@@ -7,6 +7,7 @@ from time import sleep
 
 from pyredis.server import Server
 from pyredis.asyncserver import RedisServerProtocol
+from pyredis.trioserver import TrioServer
 from pyredis.datastore import DataStore
 
 
@@ -44,7 +45,7 @@ async def amain(args):
 
 
 async def tmain(args):
-    server = Server(args.port)
+    server = TrioServer(args.port)
     await server.run()
 
 

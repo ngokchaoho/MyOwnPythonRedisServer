@@ -10,7 +10,7 @@ RECV_SIZE = 2048
 log = logging.getLogger("pyredis")
 
 
-class Server:
+class TrioServer:
     def __init__(self, port) -> None:
         self.port = port
         self._running = False
@@ -20,12 +20,7 @@ class Server:
         self._running = True
 
         async with trio.open_nursery() as nursery:
-            await nursery.start(
-                serve_tcp,
-                self.handle_client_connection,
-                port=self.port,
-                host="127.0.0.1",
-            )
+            nursery.start_soon(serve_tcp, self.handle_client_connection, self.port)
 
     async def handle_client_connection(self, client_stream: SocketStream):
         buffer = bytearray()
@@ -38,10 +33,8 @@ class Server:
                     break
                 buffer.extend(data)
                 frame, frame_size = extract_frame_from_buffer(buffer)
-                log.info("Extracted one frame from received data")
                 if frame:
                     buffer = buffer[frame_size:]
-                    log.info("Processing one frame")
                     result = handle_command(frame, self._datastore)
                     await client_stream.send_all(encode_message(result))
 

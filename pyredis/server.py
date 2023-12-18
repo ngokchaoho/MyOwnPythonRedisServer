@@ -4,7 +4,6 @@ import threading
 
 from pyredis.protocol import extract_frame_from_buffer, encode_message
 from pyredis.commands import handle_command
-from pyredis.datastore import DataStore
 
 RECV_SIZE = 2048
 log = logging.getLogger("pyredis")
