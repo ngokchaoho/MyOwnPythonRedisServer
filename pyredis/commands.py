@@ -59,6 +59,17 @@ def _handle_get(command, datastore):
     return Error("ERR wrong numer of arguments for 'get' command")
 
 
+def _handle_exists(command, datastore):
+    if len(command) >= 2:
+        found = 0
+        for key in command[1:]:
+            if key.data.decode() in datastore:
+                found += 1
+        return Integer(found)
+    else:
+        return Error("ERR wrong number of arguments for 'exists' command")
+
+
 def _handle_unrecognised_command(command, *args):
     args = " ".join((f"'{c.data.decode()}'" for c in command[1:]))
     return Error(
@@ -79,5 +90,7 @@ def handle_command(command, datastore):
 
         case "GET":
             return _handle_get(command, datastore)
+        case "EXISTS":
+            return _handle_exists(command, datastore)
 
     return _handle_unrecognised_command(command)

@@ -50,6 +50,10 @@ class DataStore:
         with self._lock:
             self._data[key] = DataEntry(value)
 
+    def __contains__(self, key):
+        with self._lock:
+            return key in self._data
+
     def set_with_expiry(self, key, value, expiry: int):
         with self._lock:
             calculated_expiry = int(time() * 1000) + expiry  # in miliseconds

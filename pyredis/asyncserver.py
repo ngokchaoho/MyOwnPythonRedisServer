@@ -1,7 +1,6 @@
 import asyncio
 
 from pyredis.commands import handle_command
-from pyredis.datastore import DataStore
 from pyredis.protocol import encode_message, extract_frame_from_buffer
 
 

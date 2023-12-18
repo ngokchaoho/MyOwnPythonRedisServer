@@ -80,6 +80,23 @@ def datastore():
             ),
             Error("ERR syntax error"),
         ),
+        # Exists Tests
+        (
+            Array([BulkString(b"exists")]),
+            Error("ERR wrong number of arguments for 'exists' command"),
+        ),
+        (Array([BulkString(b"exists"), SimpleString(b"invalid key")]), Integer(0)),
+        (Array([BulkString(b"exists"), SimpleString(b"key")]), Integer(1)),
+        (
+            Array(
+                [
+                    BulkString(b"exists"),
+                    SimpleString(b"invalid key"),
+                    SimpleString(b"key"),
+                ]
+            ),
+            Integer(1),
+        ),
     ],
 )
 def test_handle_command(command, expected, datastore):
