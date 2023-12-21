@@ -5,6 +5,8 @@ from pyredis.commands import handle_command
 from pyredis.datastore import DataStore
 from pyredis.types import Array, BulkString, Error, Integer, SimpleString
 
+from collections import deque
+
 
 @pytest.fixture(scope="module")
 def datastore():
@@ -116,6 +118,30 @@ def datastore():
                 ]
             ),
             Integer(2),
+        ),
+        # Incr Tests
+        (
+            Array([BulkString(b"incr")]),
+            Error("ERR wrong number of arguments for 'incr' command"),
+        ),
+        (
+            Array([BulkString(b"incr"), SimpleString(b"key")]),
+            Error("ERR value is not an integer or out of range"),
+        ),
+        # Decr Tests
+        (
+            Array([BulkString(b"decr")]),
+            Error("ERR wrong number of arguments for 'decr' command"),
+        ),
+        # Lpush Tests
+        (
+            Array([BulkString(b"lpush")]),
+            Error("ERR wrong number of arguments for 'lpush' command"),
+        ),
+        # Rpush Tests
+        (
+            Array([BulkString(b"rpush")]),
+            Error("ERR wrong number of arguments for 'rpush' command"),
         ),
     ],
 )
@@ -241,3 +267,158 @@ def test_handle_decr():
         Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore
     )
     assert result == Integer(0)
+
+
+# Lpush Tests
+def test_handle_lpush_lrange():
+    datastore = DataStore()
+    result = handle_command(
+        Array([BulkString(b"lpush"), SimpleString(b"klp"), SimpleString(b"second")]),
+        datastore,
+    )
+    assert result == Integer(1)
+    result = handle_command(
+        Array([BulkString(b"lpush"), SimpleString(b"klp"), SimpleString(b"first")]),
+        datastore,
+    )
+    assert result == Integer(2)
+    result = handle_command(
+        Array(
+            [
+                BulkString(b"lrange"),
+                SimpleString(b"klp"),
+                BulkString(b"0"),
+                BulkString(b"2"),
+            ]
+        ),
+        datastore,
+    )
+    assert result == Array(data=[BulkString("first"), BulkString("second")])
+
+
+# Rpush Tests
+def test_handle_rpush_lrange():
+    datastore = DataStore()
+    result = handle_command(
+        Array([BulkString(b"rpush"), SimpleString(b"krp"), SimpleString(b"first")]),
+        datastore,
+    )
+    assert result == Integer(1)
+    result = handle_command(
+        Array([BulkString(b"rpush"), SimpleString(b"krp"), SimpleString(b"second")]),
+        datastore,
+    )
+    assert result == Integer(2)
+    result = handle_command(
+        Array(
+            [
+                BulkString(b"lrange"),
+                SimpleString(b"krp"),
+                BulkString(b"0"),
+                BulkString(b"2"),
+            ]
+        ),
+        datastore,
+    )
+    assert result == Array(data=[BulkString("first"), BulkString("second")])
+
+
+@pytest.fixture
+def ds():
+    return DataStore()
+
+
+def test_initial_data_invalid_type():
+    with pytest.raises(TypeError):
+        ds = DataStore("string")
+
+
+def test_initial_data():
+    ds = DataStore({"k1": 1, "k2": "v2"})
+    assert ds["k1"] == 1
+    assert ds["k2"] == "v2"
+
+
+def test_in(ds):
+    ds["key"] = 1
+
+    assert "key" in ds
+    assert "key2" not in ds
+
+
+def test_get_item(ds):
+    ds["key"] = 1
+    assert ds["key"] == 1
+
+
+def test_set_item(ds):
+    l = ds.append("key", 1)
+    assert l == 1
+    assert ds["key"] == deque([1])
+
+
+def test_incr(ds):
+    ds["k"] = "1"
+    res = ds.incr("k")
+    assert res == 2
+    res = ds.incr("k")
+    assert res == 3
+
+
+def test_decr(ds):
+    ds["k"] = "1"
+    ds.incr("k")
+    ds.incr("k")
+    res = ds.incr("k")
+    assert res == 4
+    res = ds.decr("k")
+    assert res == 3
+    res = ds.decr("k")
+    assert res == 2
+
+
+def test_append(ds):
+    num_entries = ds.append("key", 1)
+    assert num_entries == 1
+    assert ds["key"] == deque([1])
+
+
+def test_preppend(ds):
+    ds.append("key", 1)
+    ds.prepend("key", 2)
+    assert ds["key"] == deque([2, 1])
+
+
+def test_expire_on_read(ds):
+    ds.set_with_expiry("key", "value", 0.01)
+    sleep(0.15)
+    with pytest.raises(KeyError):
+        ds["key"]
+
+
+def test_remove_expired_keys_empty():
+    ds = DataStore()
+    ds.remove_expired_keys()
+
+
+def _fill_ds(ds, size, percent_expired):
+    num_expired = int(size * (percent_expired / 100))
+
+    # items without expiry
+    for i in range(size - num_expired):
+        ds[f"{i}"] = i
+
+    # items with expiry and that will have expired
+    for i in range(num_expired):
+        ds.set_with_expiry(f"e_{i}", i, -1)
+
+
+@pytest.mark.parametrize("size, percent_expired", [(20, 10), (200, 100)])
+def test_remove_expired_keys(size, percent_expired):
+    expected_len_after_expiry = size - (size * (percent_expired / 100))
+
+    ds = DataStore()
+    _fill_ds(ds, size, percent_expired)
+
+    ds.remove_expired_keys()
+    assert len(ds._data) == expected_len_after_expiry

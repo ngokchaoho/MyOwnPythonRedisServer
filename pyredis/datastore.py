@@ -2,6 +2,8 @@ from threading import Lock
 from dataclasses import dataclass
 from typing import Any
 from time import time
+from itertools import islice
+from collections import deque
 
 import random
 import logging
@@ -54,6 +56,26 @@ class DataStore:
         with self._lock:
             return key in self._data
 
+    def incr(self, key):
+        with self._lock:
+            item = self._data.get(key, DataEntry(0))
+            try:
+                value = int(item.value) + 1
+            except ValueError:
+                raise TypeError
+            item.value = str(value)
+            self._data[key] = item
+        return value
+
+    def decr(self, key):
+        with self._lock:
+            try:
+                value = int(self._data.get(key, DataEntry(0)).value) - 1
+            except ValueError:
+                raise TypeError
+            self._data[key].value = str(value)
+        return value
+
     def set_with_expiry(self, key, value, expiry: int):
         with self._lock:
             calculated_expiry = int(time() * 1000) + expiry  # in miliseconds
@@ -82,3 +104,32 @@ class DataStore:
         # if more than
         if expired_count > EXPIRY_TEST_SAMPLE_SIZE * 0.25:
             self.remove_expired_keys()
+
+    def append(self, key, value):
+        with self._lock:
+            item = self._data.get(key, DataEntry(deque()))
+            if not isinstance(item.value, deque):
+                raise TypeError
+            item.value.append(value)
+            self._data[key] = item
+            return len(item.value)
+
+    def lrange(self, key, start, stop):
+        with self._lock:
+            item = self._data.get(key, DataEntry(deque()))
+            if not isinstance(item.value, deque):
+                raise TypeError
+
+            return list(islice(item.value, start, stop))
+
+    def prepend(self, key, value):
+        with self._lock:
+            item = self._data.get(key, DataEntry(deque()))
+            print("HERE")
+            if not isinstance(item.value, deque):
+                print(item.value)
+                raise TypeError
+            print("HERE 2")
+            item.value.insert(0, value)
+            self._data[key] = item
+            return len(item.value)

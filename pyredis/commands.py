@@ -86,10 +86,9 @@ def _handle_incr(command, datastore):
     if len(command) == 2:
         key = command[1].data.decode()
         try:
-            value = datastore[key] + 1
-        except KeyError:
-            value = 1  # first time increase
-        datastore[key] = value
+            value = datastore.incr(key)
+        except TypeError:
+            return Error("ERR value is not an integer or out of range")
         return Integer(value)
     return Error("ERR wrong number of arguments for 'incr' command")
 
@@ -98,14 +97,62 @@ def _handle_decr(command, datastore):
     if len(command) == 2:
         key = command[1].data.decode()
         try:
-            value = datastore[key] - 1
-        except KeyError:
-            value = -1
+            value = datastore.decr(key)
         except TypeError:
-            return Error("value is not an integer or out of range")
-        datastore[key] = value
+            return Error("ERR value is not an integer or out of range")
         return Integer(value)
     return Error("ERR wrong number of arguments for 'decr' command")
+
+
+def _handle_lpush(command, datastore):
+    if len(command) >= 2:
+        count = 0
+        key = command[1].data.decode()
+
+        try:
+            for c in command[2:]:
+                item = c.data.decode()
+                count = datastore.prepend(key, item)
+            return Integer(count)
+        except TypeError:
+            return Error(
+                "WRONGTYPE Operation against a key holding the wrong kind of value"
+            )
+    return Error("ERR wrong number of arguments for 'lpush' command")
+
+
+def _handle_lrange(command, datastore):
+    if len(command) == 4:
+        key = command[1].data.decode()
+        start = int(command[2].data.decode())
+        stop = int(command[3].data.decode())
+
+        try:
+            items = datastore.lrange(key, start, stop)
+            return Array([BulkString(i) for i in items])
+        except TypeError:
+            return Error(
+                "WRONGTYPE Operatino against a key holding the wrong kind of value"
+            )
+
+    return Error("ERR wrong number of arguments for 'lrange' command")
+
+
+def _handle_rpush(command, datastore):
+    if len(command) >= 2:
+        count = 0
+        key = command[1].data.decode()
+
+        try:
+            for c in command[2:]:
+                item = c.data.decode()
+                count = datastore.append(key, item)
+            return Integer(count)
+        except TypeError:
+            return Error(
+                "WRONGTYPE Operation against a key holding the wrong kind of value"
+            )
+    return Error("ERR wrong number of arguments for 'rpush' command")
 
 
 def _handle_unrecognised_command(command, *args):
@@ -135,4 +182,10 @@ def handle_command(command, datastore):
             return _handle_incr(command, datastore)
         case "DECR":
             return _handle_decr(command, datastore)
+        case "LPUSH":
+            return _handle_lpush(command, datastore)
+        case "RPUSH":
+            return _handle_rpush(command, datastore)
+        case "LRANGE":
+            return _handle_lrange(command, datastore)
     return _handle_unrecognised_command(command)
