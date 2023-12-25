@@ -33,6 +33,11 @@ async def amain(args):
 
     datastore = DataStore()
 
+    if args.restore and not AppendOnlyPersister.restore_from_file(
+        "ccdb.aof", datastore
+    ):
+        return -1
+
     loop = asyncio.get_running_loop()
 
     loop.create_task(acheck_expiry_task(datastore))
@@ -76,6 +81,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--asyncio", action=argparse.BooleanOptionalAction)
     parser.add_argument("--trio", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--restore", action=argparse.BooleanOptionalAction)
     parser.add_argument(
         "-v",
         "--verbose",
