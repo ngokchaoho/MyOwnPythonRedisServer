@@ -9,6 +9,7 @@ from pyredis.server import Server
 from pyredis.asyncserver import RedisServerProtocol
 from pyredis.trioserver import TrioServer
 from pyredis.datastore import DataStore
+from pyredis.persistence import AppendOnlyPersister
 
 
 REDIS_DEFAULT_PORT = 6379
@@ -18,13 +19,13 @@ log = logging.getLogger("pyredis")
 def check_expiry_task(datastore):
     while True:
         datastore.remove_expired_keys()
-        sleep(0.1)
+        sleep(1)
 
 
 async def acheck_expiry_task(datastore):
     while True:
         datastore.remove_expired_keys()
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(1)
 
 
 async def amain(args):
@@ -34,10 +35,12 @@ async def amain(args):
 
     loop = asyncio.get_running_loop()
 
-    monitor_task = loop.create_task(acheck_expiry_task(datastore))
+    loop.create_task(acheck_expiry_task(datastore))
+
+    persister = AppendOnlyPersister("ccdb.aof")
 
     server = await loop.create_server(
-        lambda: RedisServerProtocol(datastore), "127.0.0.1", args.port
+        lambda: RedisServerProtocol(datastore, persister), "127.0.0.1", args.port
     )
 
     async with server:
@@ -53,6 +56,7 @@ def main(args):
     log.info(f"Starting PyRedis on port: {args.port}")
 
     datastore = DataStore()
+
     expiration_monitor = threading.Thread(target=check_expiry_task, args=(datastore,))
     expiration_monitor.start()
 

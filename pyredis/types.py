@@ -35,7 +35,14 @@ class BulkString:
         if self.data is None:
             return "$-1\r\n".encode()
         else:
-            return f"${len(self.data)}\r\n{self.data}\r\n".encode()
+            if isinstance(self.data, str):
+                return f"${len(self.data)}\r\n{self.data}\r\n".encode()
+            else:
+                return (
+                    f"${len(self.data)}\r\n".encode()
+                    + bytes(self.data)
+                    + "\r\n".encode()
+                )
 
 
 @dataclass

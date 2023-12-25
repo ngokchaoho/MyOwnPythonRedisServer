@@ -2,6 +2,7 @@ import pytest
 from time import sleep, time_ns
 
 from pyredis.commands import handle_command
+from pyredis.persistence import AppendOnlyPersister
 from pyredis.datastore import DataStore
 from pyredis.types import Array, BulkString, Error, Integer, SimpleString
 
@@ -13,6 +14,12 @@ def datastore():
     datastore = DataStore()
     datastore["always_exist_key"] = "default"
     return datastore
+
+
+@pytest.fixture(scope="module")
+def persister():
+    persister = AppendOnlyPersister("test.aof")
+    return persister
 
 
 @pytest.mark.parametrize(
@@ -145,12 +152,12 @@ def datastore():
         ),
     ],
 )
-def test_handle_command(command, expected, datastore):
-    result = handle_command(command, datastore)
+def test_handle_command(command, expected, datastore, persister):
+    result = handle_command(command, datastore, persister)
     assert result == expected
 
 
-def test_get_with_expiry(datastore):
+def test_get_with_expiry(datastore, persister):
     key = "key"
     value = "value"
     px = 100
@@ -162,15 +169,15 @@ def test_get_with_expiry(datastore):
         BulkString(b"px"),
         BulkString(f"{px}".encode()),
     ]
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == SimpleString("OK")
     sleep((px + 100) / 1000)
     command = [BulkString(b"get"), SimpleString(b"key")]
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == BulkString(None)
 
 
-def test_set_with_expiry():
+def test_set_with_expiry(persister):
     datastore = DataStore()
     key = "key"
     value = "value"
@@ -183,7 +190,7 @@ def test_set_with_expiry():
     command = base_command[:]
     command.extend([BulkString(b"ex"), BulkString(f"{ex}".encode())])
     expected_expiry = time_ns() + (ex * 10**9)
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == SimpleString("OK")
     stored = datastore._data[key]
     assert stored.value == value
@@ -194,7 +201,7 @@ def test_set_with_expiry():
     command = base_command[:]
     command.extend([BulkString(b"px"), BulkString(f"{px}".encode())])
     expected_expiry = time_ns() + (ex * 10**6)
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == SimpleString("OK")
     stored = datastore._data[key]
     assert stored.value == value
@@ -202,7 +209,7 @@ def test_set_with_expiry():
     assert diff < 10000
 
 
-def test_get_with_expiry():
+def test_get_with_expiry(persister):
     datastore = DataStore()
     key = "key"
     value = "value"
@@ -215,11 +222,11 @@ def test_get_with_expiry():
         BulkString(b"px"),
         BulkString(f"{px}".encode()),
     ]
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == SimpleString("OK")
     sleep((px + 100) / 1000)
     command = [BulkString(b"get"), SimpleString(b"key")]
-    result = handle_command(command, datastore)
+    result = handle_command(command, datastore, persister)
     assert result == BulkString(None)
 
 
@@ -236,50 +243,52 @@ def test_expire_on_read(datastore):
 
 
 # Incr Tests
-def test_handle_incr_command_valid_key():
+def test_handle_incr_command_valid_key(persister):
     datastore = DataStore()
     result = handle_command(
-        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore
+        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore, persister
     )
     assert result == Integer(1)
     result = handle_command(
-        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore
+        Array([BulkString(b"incr"), SimpleString(b"ki")]), datastore, persister
     )
     assert result == Integer(2)
 
 
 # Decr Tests
-def test_handle_decr():
+def test_handle_decr(persister):
     datastore = DataStore()
     result = handle_command(
-        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore
+        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore, persister
     )
     assert result == Integer(1)
     result = handle_command(
-        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore
+        Array([BulkString(b"incr"), SimpleString(b"kd")]), datastore, persister
     )
     assert result == Integer(2)
     result = handle_command(
-        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore
+        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore, persister
     )
     assert result == Integer(1)
     result = handle_command(
-        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore
+        Array([BulkString(b"decr"), SimpleString(b"kd")]), datastore, persister
     )
     assert result == Integer(0)
 
 
 # Lpush Tests
-def test_handle_lpush_lrange():
+def test_handle_lpush_lrange(persister):
     datastore = DataStore()
     result = handle_command(
         Array([BulkString(b"lpush"), SimpleString(b"klp"), SimpleString(b"second")]),
         datastore,
+        persister,
     )
     assert result == Integer(1)
     result = handle_command(
         Array([BulkString(b"lpush"), SimpleString(b"klp"), SimpleString(b"first")]),
         datastore,
+        persister,
     )
     assert result == Integer(2)
     result = handle_command(
@@ -292,21 +301,24 @@ def test_handle_lpush_lrange():
             ]
         ),
         datastore,
+        persister,
     )
     assert result == Array(data=[BulkString("first"), BulkString("second")])
 
 
 # Rpush Tests
-def test_handle_rpush_lrange():
+def test_handle_rpush_lrange(persister):
     datastore = DataStore()
     result = handle_command(
         Array([BulkString(b"rpush"), SimpleString(b"krp"), SimpleString(b"first")]),
         datastore,
+        persister,
     )
     assert result == Integer(1)
     result = handle_command(
         Array([BulkString(b"rpush"), SimpleString(b"krp"), SimpleString(b"second")]),
         datastore,
+        persister,
     )
     assert result == Integer(2)
     result = handle_command(
@@ -319,6 +331,7 @@ def test_handle_rpush_lrange():
             ]
         ),
         datastore,
+        persister,
     )
     assert result == Array(data=[BulkString("first"), BulkString("second")])
 
